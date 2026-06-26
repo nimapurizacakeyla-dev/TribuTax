@@ -410,3 +410,46 @@ body {
         font-size: 32px;
     }
 }
+/* FILAS DE MENSAJES CON AVATAR */
+.message-row {
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    gap: 9px;
+    margin-bottom: 14px;
+}
+
+.bot-row {
+    justify-content: flex-start;
+}
+
+.user-row {
+    justify-content: flex-end;
+}
+
+/* IMAGEN DEL BOT Y USUARIO */
+.message-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+    flex-shrink: 0;
+}
+
+/* AJUSTE DE BURBUJAS */
+.message-row .bot-message,
+.message-row .user-message {
+    margin-bottom: 0;
+}
+
+/* MENSAJE DEL BOT */
+.bot-row .bot-message {
+    max-width: 75%;
+}
+
+/* MENSAJE DEL USUARIO */
+.user-row .user-message {
+    max-width: 75%;
+}

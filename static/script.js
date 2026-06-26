@@ -23,12 +23,9 @@ window.addEventListener("beforeunload", function () {
 function reiniciarChat() {
     historialConversacion = [];
 
-    chatBox.innerHTML = `
-        <div class="bot-message">
-            ¡Hola! Soy TribuTax. Escribe tu consulta.
-        </div>
-    `;
-
+    chatBox.innerHTML = "";
+    crearMensajeBot("¡Hola! Soy TribuTax. Escribe tu consulta.");
+    
     input.value = "";
 
     chatPanel.classList.remove("active");
@@ -58,17 +55,41 @@ function cerrarChat() {
 }
 
 function crearMensajeUsuario(texto) {
+    const fila = document.createElement("div");
+    fila.className = "message-row user-row";
+
     const mensaje = document.createElement("div");
     mensaje.className = "user-message";
     mensaje.textContent = texto;
-    chatBox.appendChild(mensaje);
+
+    const avatar = document.createElement("img");
+    avatar.className = "message-avatar";
+    avatar.src = "/static/uploads/persona.png";
+    avatar.alt = "Usuario";
+
+    fila.appendChild(mensaje);
+    fila.appendChild(avatar);
+
+    chatBox.appendChild(fila);
 }
 
 function crearMensajeBot(texto) {
+    const fila = document.createElement("div");
+    fila.className = "message-row bot-row";
+
+    const avatar = document.createElement("img");
+    avatar.className = "message-avatar";
+    avatar.src = "/static/uploads/robot.jpeg";
+    avatar.alt = "TribuTax";
+
     const mensaje = document.createElement("div");
     mensaje.className = "bot-message";
     mensaje.textContent = texto;
-    chatBox.appendChild(mensaje);
+
+    fila.appendChild(avatar);
+    fila.appendChild(mensaje);
+
+    chatBox.appendChild(fila);
 }
 
 function mostrarPuntosEscribiendo() {
