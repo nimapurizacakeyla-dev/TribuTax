@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>TribuTax | Asistente Virtual</title>
+    <link rel="stylesheet" href="/static/style.css?v=1200">
+</head>
+<body>
+
+    <main class="landing">
+
+        <!-- BOTÓN CIRCULAR FLOTANTE -->
+        <button id="floating-chat" class="floating-chat" onclick="abrirChat()">
+            <img src="/static/uploads/Tribuimagen.jpeg" alt="Abrir TribuTax">
+        </button>
+
+        <p id="click-text" class="click-text">
+            Haz clic para iniciar tu consulta
+        </p>
+
+        <!-- PANEL DEL CHATBOT -->
+        <section id="chat-panel" class="chat-panel">
+
+            <header class="chat-header">
+    <div class="chat-brand">
+        <img src="/static/uploads/Tribuimagen.jpeg" alt="TribuTax">
+
+        <div class="chat-title">
+            <h3>TribuTax</h3>
+            <p>Tu asistente virtual</p>
+        </div>
+    </div>
+
+    <div class="header-actions">
+        <a href="https://wa.link/rrslqx" target="_blank" class="whatsapp-btn" title="Contactar por WhatsApp">
+            <img src="/static/uploads/whatsapp.jpg" alt="WhatsApp">
+        </a>
+
+        <button onclick="cerrarChat()" class="close-btn" title="Cerrar chat">×</button>
+    </div>
+</header>
+
+            <section id="chat-box" class="chat-box"></section>
+
+            <section class="input-area">
+                <input type="text" id="user-input" placeholder="Escribe tu consulta...">
+                <button onclick="enviarMensaje()">➤</button>
+            </section>
+
+            <button onclick="limpiarHistorial()" class="new-chat">
+                Nueva conversación
+            </button>
+
+        </section>
+
+    </main>
+
+    <script src="/static/script.js?v=1200"></script>
+</body>
+</html>
