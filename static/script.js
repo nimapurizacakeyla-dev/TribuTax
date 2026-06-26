@@ -4,6 +4,9 @@ const input = document.getElementById("user-input");
 const floatingChat = document.getElementById("floating-chat");
 const clickText = document.getElementById("click-text");
 
+// Historial temporal de la conversación
+let historialConversacion = [];
+
 // Borra historial al recargar
 localStorage.clear();
 sessionStorage.clear();
@@ -18,9 +21,11 @@ window.addEventListener("beforeunload", function () {
 });
 
 function reiniciarChat() {
+    historialConversacion = [];
+
     chatBox.innerHTML = `
         <div class="bot-message">
-    ¡Hola! Soy TribuTax. Escribe tu consulta.
+            ¡Hola! Soy TribuTax. Escribe tu consulta.
         </div>
     `;
 
@@ -107,13 +112,29 @@ async function enviarMensaje() {
             headers: {
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({ mensaje: mensaje })
+            body: JSON.stringify({
+                mensaje: mensaje,
+                historial: historialConversacion.slice(-8)
+            })
         });
 
         const data = await response.json();
 
         quitarPuntosEscribiendo();
-        crearMensajeBot(data.respuesta);
+
+        const respuestaBot = data.respuesta || "No pude generar una respuesta en este momento.";
+        crearMensajeBot(respuestaBot);
+
+        // Guardar conversación para que entienda preguntas de seguimiento
+        historialConversacion.push({
+            usuario: mensaje,
+            bot: respuestaBot
+        });
+
+        // Evita que el historial crezca demasiado
+        if (historialConversacion.length > 10) {
+            historialConversacion = historialConversacion.slice(-10);
+        }
 
         chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -133,6 +154,7 @@ function usarPregunta(pregunta) {
 }
 
 function limpiarHistorial() {
+    historialConversacion = [];
     reiniciarChat();
 }
 
