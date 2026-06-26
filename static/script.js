@@ -25,7 +25,7 @@ function reiniciarChat() {
 
     chatBox.innerHTML = "";
     crearMensajeBot("¡Hola! Soy TribuTax. Escribe tu consulta.");
-    
+
     input.value = "";
 
     chatPanel.classList.remove("active");
@@ -64,7 +64,7 @@ function crearMensajeUsuario(texto) {
 
     const avatar = document.createElement("img");
     avatar.className = "message-avatar";
-    avatar.src = "/static/uploads/persona.png";
+    avatar.src = "/static/uploads/persona.jpg";
     avatar.alt = "Usuario";
 
     fila.appendChild(mensaje);
@@ -79,7 +79,7 @@ function crearMensajeBot(texto) {
 
     const avatar = document.createElement("img");
     avatar.className = "message-avatar";
-    avatar.src = "/static/uploads/robot.jpeg";
+    avatar.src = "/static/uploads/robot.jpg";
     avatar.alt = "TribuTax";
 
     const mensaje = document.createElement("div");
