@@ -30,10 +30,7 @@ async def chat(request: Request):
                 "respuesta": "Escribe una consulta para poder ayudarte."
             })
 
-        respuesta = responder_chatbot(
-            mensaje=mensaje_usuario,
-            historial=historial
-        )
+        respuesta = responder_chatbot(mensaje_usuario, historial)
 
         return JSONResponse(content={
             "respuesta": respuesta
@@ -43,5 +40,5 @@ async def chat(request: Request):
         print("ERROR EN /chat:", str(e))
 
         return JSONResponse(content={
-            "respuesta": "Soy TribuTax. En este momento puedo ayudarte con IGV, SUNAT, RUC, comprobantes, renta, regímenes tributarios, detracciones, retenciones, libros contables y Clave SOL."
+            "respuesta": "Hubo un problema interno, pero puedo ayudarte con temas como IGV, SUNAT, RUC, comprobantes, renta, regímenes tributarios, detracciones, retenciones, libros contables y Clave SOL."
         })

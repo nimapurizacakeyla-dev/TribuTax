@@ -440,69 +440,6 @@ RESPUESTA:
         return None
 
 
-def respuesta_local_contextual(mensaje: str, historial) -> str | None:
-    if not historial:
-        return None
-
-    if not es_pregunta_de_seguimiento(mensaje):
-        return None
-
-    ultimo_tema = limpiar_texto(obtener_ultimo_tema(historial))
-    pregunta = limpiar_texto(mensaje)
-
-    if "nota de debito" in ultimo_tema:
-        if "ejemplo" in pregunta:
-            return "Ejemplo: si emitiste una factura por S/ 500, pero luego debes cobrar S/ 50 adicionales por transporte o penalidad, emites una nota de débito por S/ 50 para aumentar el valor de la operación."
-        if "sirve" in pregunta:
-            return "La nota de débito sirve para aumentar el valor de una operación ya facturada. Se usa cuando hay intereses, penalidades, diferencia de precio, gastos adicionales o ajustes."
-        if "emite" in pregunta or "usa" in pregunta:
-            return "La nota de débito se emite cuando necesitas incrementar el monto de una factura o boleta ya emitida."
-        return "Sobre la nota de débito: se usa para aumentar el valor de una operación ya facturada, por intereses, penalidades, diferencias de precio o gastos adicionales."
-
-    if "nota de credito" in ultimo_tema:
-        if "ejemplo" in pregunta:
-            return "Ejemplo: si emitiste una factura por S/ 300 y el cliente devuelve productos por S/ 80, emites una nota de crédito por S/ 80 para reducir el monto."
-        if "sirve" in pregunta:
-            return "La nota de crédito sirve para reducir, corregir o anular total o parcialmente una factura o boleta ya emitida."
-        return "Sobre la nota de crédito: se usa para disminuir, corregir o anular una operación ya emitida."
-
-    if "igv" in ultimo_tema:
-        if "ejemplo" in pregunta:
-            return "Ejemplo: si vendes un producto con base de S/ 100, el IGV será S/ 18 y el total será S/ 118."
-        if "sirve" in pregunta:
-            return "El IGV sirve para gravar el consumo de bienes y servicios. Las empresas lo cobran en sus ventas y luego lo declaran ante SUNAT."
-        if "calcula" in pregunta:
-            return "El IGV se calcula aplicando el 18% sobre la base imponible. Si el total ya incluye IGV, divides el total entre 1.18 para hallar la base."
-        return "Sobre el IGV: es el Impuesto General a las Ventas y su tasa general en Perú es 18%."
-
-    if "factura" in ultimo_tema:
-        if "sirve" in pregunta:
-            return "La factura sirve para sustentar una venta o servicio. También permite al comprador sustentar gasto, costo o crédito fiscal cuando corresponde."
-        return "Sobre la factura: es un comprobante de pago usado cuando el comprador necesita sustentar crédito fiscal, gasto o costo tributario."
-
-    if "boleta" in ultimo_tema:
-        if "sirve" in pregunta:
-            return "La boleta sirve para acreditar una venta o servicio realizado a un consumidor final. Generalmente no permite usar crédito fiscal."
-        return "Sobre la boleta: se emite normalmente a consumidores finales."
-
-    if "clave sol" in ultimo_tema:
-        if "sirve" in pregunta:
-            return "La Clave SOL sirve para ingresar a SUNAT Operaciones en Línea. Permite declarar impuestos, pagar deudas, consultar RUC, emitir comprobantes y hacer trámites virtuales."
-        return "Sobre la Clave SOL: es la contraseña que permite acceder a los servicios virtuales de SUNAT."
-
-    if "ruc" in ultimo_tema:
-        if "sirve" in pregunta:
-            return "El RUC sirve para identificar a una persona o empresa ante SUNAT y realizar actividades económicas formalmente."
-        return "Sobre el RUC: es el Registro Único de Contribuyentes usado para identificarte ante SUNAT."
-
-    if "uit" in ultimo_tema:
-        if "sirve" in pregunta:
-            return "La UIT sirve como referencia para calcular impuestos, multas, deducciones, límites de ingresos, sanciones y obligaciones tributarias."
-        return "Sobre la UIT: es la Unidad Impositiva Tributaria usada como valor de referencia en Perú."
-
-    return None
-
-
 def responder_chatbot(mensaje: str, historial=None) -> str:
     if historial is None:
         historial = []
@@ -512,30 +449,33 @@ def responder_chatbot(mensaje: str, historial=None) -> str:
     if mensaje == "":
         return "Escribe tu consulta para poder ayudarte."
 
-    # 1. Si es pregunta de seguimiento, intenta responder usando el contexto anterior
-    respuesta_contextual_local = respuesta_local_contextual(mensaje, historial)
+    try:
+        # 1. Si es pregunta de seguimiento, intenta responder usando el historial
+        respuesta_contextual_local = respuesta_local_contextual(mensaje, historial)
 
-    if respuesta_contextual_local:
-        return respuesta_contextual_local
+        if respuesta_contextual_local:
+            return respuesta_contextual_local
 
-    # 2. Busca respuesta rápida local normal
-    respuesta = respuesta_faq(mensaje)
+        # 2. Busca respuesta local rápida
+        respuesta = respuesta_faq(mensaje)
 
-    if respuesta:
-        return respuesta
+        if respuesta:
+            return respuesta
 
-    # 3. Si es seguimiento y no se resolvió local, usa Gemini con historial
-    if es_pregunta_de_seguimiento(mensaje):
-        respuesta_contextual_gemini = responder_con_gemini_contextual(mensaje, historial)
+        # 3. Usa Gemini con historial si está disponible
+        respuesta_gemini = responder_con_gemini_contextual(mensaje, historial)
 
-        if respuesta_contextual_gemini:
-            return respuesta_contextual_gemini
+        if respuesta_gemini:
+            return respuesta_gemini
 
-    # 4. Para cualquier otra pregunta, usa Gemini con historial
-    respuesta_gemini = responder_con_gemini_contextual(mensaje, historial)
+        # 4. Si Gemini falla, usa base local
+        return respuesta_local(mensaje)
 
-    if respuesta_gemini:
-        return respuesta_gemini
+    except Exception as e:
+        print("ERROR EN responder_chatbot:", str(e))
 
-    # 5. Si Gemini falla, responde local
-    return respuesta_local(mensaje)
+        return (
+            "Soy TribuTax. Puedo ayudarte con IGV, SUNAT, RUC, comprobantes de pago, "
+            "Impuesto a la Renta, regímenes tributarios, detracciones, retenciones, "
+            "libros contables, UIT y Clave SOL."
+        )
