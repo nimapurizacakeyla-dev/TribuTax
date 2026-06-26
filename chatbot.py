@@ -628,16 +628,11 @@ def corregir_texto(texto):
         "voleta": "boleta",
         "boleto": "boleta",
         "bolta": "boleta",
-        "deito": "debito",
-        "debito": "nota de debito",
-        "débito": "nota de debito",
-        "credito": "nota de credito",
-        "crédito": "nota de credito",
+        "deito": "nota de debito",
         "notadebito": "nota de debito",
         "notacredito": "nota de credito",
         "tributario": "regimen tributario",
         "regimenes": "regimen tributario",
-        "regimen": "regimen tributario",
         "detraciones": "detraccion",
         "detracción": "detraccion",
         "detracciones": "detraccion",
@@ -651,6 +646,11 @@ def corregir_texto(texto):
         "renta5": "renta de quinta categoria",
         "predial": "impuesto predial",
         "coactiva": "cobranza coactiva",
+        "devolvio": "devolucion",
+        "devuelve": "devolucion",
+        "devolver": "devolucion",
+        "mercaderia": "mercaderia",
+        "mercadería": "mercaderia",
     }
 
     palabras = texto_limpio.split()
@@ -703,7 +703,7 @@ def extraer_montos_con_etiquetas(mensaje):
             r"costo\s*de\s*ventas\s*(?:por|de|:)?\s*s?/?\s*([\d,]+(?:\.\d+)?)",
         ],
         "gastos_deducibles": [
-            r"gastos?\s*(?:deducibles|aceptados|permitidos|administrativos|ventas|operativos)?\s*(?:por|de|:)?\s*s?/?\s*([\d,]+(?:\.\d+)?)",
+            r"gastos?\s*(?:deducibles|aceptados|permitidos|administrativos|ventas|operativos)\s*(?:por|de|:)?\s*s?/?\s*([\d,]+(?:\.\d+)?)",
         ],
         "gastos_no_deducibles": [
             r"gastos?\s*(?:no deducibles|reparables|no aceptados)\s*(?:por|de|:)?\s*s?/?\s*([\d,]+(?:\.\d+)?)",
@@ -712,6 +712,10 @@ def extraer_montos_con_etiquetas(mensaje):
         ],
         "pagos_a_cuenta": [
             r"pagos?\s*a\s*cuenta\s*(?:del impuesto a la renta|de renta)?\s*(?:por|de|:)?\s*s?/?\s*([\d,]+(?:\.\d+)?)",
+        ],
+        "impuesto_calculado": [
+            r"impuesto\s*a\s*la\s*renta\s*(?:determinado|calculado)?\s*(?:por|de|:)?\s*s?/?\s*([\d,]+(?:\.\d+)?)",
+            r"impuesto\s*(?:determinado|calculado)\s*(?:por|de|:)?\s*s?/?\s*([\d,]+(?:\.\d+)?)",
         ],
         "tasa": [
             r"tasa\s*(?:del)?\s*(?:impuesto a la renta|ir|renta)?\s*(?:de|del|:)?\s*([\d]+(?:\.\d+)?)\s*%",
@@ -747,6 +751,46 @@ def extraer_montos_con_etiquetas(mensaje):
     return resultado
 
 
+def resolver_caso_saldo_renta(mensaje):
+    texto = limpiar_texto(mensaje)
+    montos = extraer_montos_con_etiquetas(mensaje)
+    numeros = extraer_numeros(mensaje)
+
+    if not contiene(texto, ["saldo por pagar", "saldo a favor", "pagos a cuenta", "impuesto a la renta"]):
+        return None
+
+    impuesto = montos.get("impuesto_calculado")
+    pagos = montos.get("pagos_a_cuenta")
+
+    if impuesto is None and contiene(texto, ["impuesto a la renta", "impuesto determinado", "impuesto calculado"]) and len(numeros) >= 1:
+        impuesto = numeros[0]
+
+    if pagos is None and contiene(texto, ["pagos a cuenta"]) and len(numeros) >= 2:
+        pagos = numeros[1]
+
+    if impuesto is not None and pagos is not None:
+        saldo = impuesto - pagos
+
+        if saldo > 0:
+            resultado = f"Existe saldo por pagar de {formato_soles(saldo)}."
+        elif saldo < 0:
+            resultado = f"Existe saldo a favor de {formato_soles(abs(saldo))}."
+        else:
+            resultado = "No existe saldo por pagar ni saldo a favor."
+
+        return (
+            "Caso práctico: saldo por pagar o saldo a favor del Impuesto a la Renta\n\n"
+            f"Impuesto a la Renta determinado: {formato_soles(impuesto)}\n"
+            f"Pagos a cuenta realizados: {formato_soles(pagos)}\n\n"
+            "Fórmula:\n"
+            "Saldo = Impuesto determinado - Pagos a cuenta\n\n"
+            f"Saldo = {formato_soles(impuesto)} - {formato_soles(pagos)}\n"
+            f"{resultado}"
+        )
+
+    return None
+
+
 def resolver_caso_renta_empresarial_avanzado(mensaje):
     texto = limpiar_texto(mensaje)
 
@@ -757,10 +801,6 @@ def resolver_caso_renta_empresarial_avanzado(mensaje):
         "gastos no deducibles",
         "adiciones tributarias",
         "renta neta imponible",
-        "impuesto a la renta",
-        "saldo por pagar",
-        "saldo a favor",
-        "pagos a cuenta",
         "29.5",
     ]
 
@@ -779,22 +819,7 @@ def resolver_caso_renta_empresarial_avanzado(mensaje):
     tasa = montos.get("tasa", 29.5)
 
     if ingresos is None:
-        return (
-            "Puedo resolver este caso de Impuesto a la Renta empresarial, pero faltan datos numéricos.\n\n"
-            "Necesito como mínimo:\n"
-            "1. Ingresos o ventas.\n"
-            "2. Costos computables.\n"
-            "3. Gastos deducibles.\n"
-            "4. Gastos no deducibles o reparables.\n"
-            "5. Pagos a cuenta.\n"
-            "6. Tasa del impuesto, por ejemplo 29.5%.\n\n"
-            "Fórmula general:\n"
-            "Renta neta imponible = ingresos - costos - gastos deducibles + adiciones - deducciones.\n"
-            "Impuesto a la Renta = renta neta imponible x tasa.\n"
-            "Saldo = impuesto calculado - pagos a cuenta.\n\n"
-            "Ejemplo:\n"
-            "Ingresos 500000, costos 230000, gastos deducibles 80000, gastos no deducibles 15000, pagos a cuenta 42000, tasa 29.5%."
-        )
+        return None
 
     renta_neta = ingresos - costos - gastos_deducibles + gastos_no_deducibles + adiciones - deducciones
     impuesto = renta_neta * (tasa / 100)
@@ -836,6 +861,11 @@ def resolver_caso_renta_empresarial_avanzado(mensaje):
 def resolver_caso_practico(mensaje):
     texto = limpiar_texto(mensaje)
     numeros = extraer_numeros(mensaje)
+
+    caso_saldo = resolver_caso_saldo_renta(mensaje)
+
+    if caso_saldo:
+        return caso_saldo
 
     caso_renta = resolver_caso_renta_empresarial_avanzado(mensaje)
 
@@ -912,10 +942,23 @@ def resolver_caso_practico(mensaje):
                 f"Factura original: {formato_soles(original)}\n"
                 f"Monto adicional: {formato_soles(adicional)}\n"
                 f"Nuevo monto de la operación: {formato_soles(nuevo_total)}\n\n"
-                "Corresponde emitir una nota de débito porque estás aumentando el valor de una operación ya facturada."
+                "Comprobante que corresponde emitir: nota de débito.\n"
+                "Motivo: aumenta el valor de una operación ya facturada."
             )
 
-    if contiene(texto, ["nota de credito", "nota credito", "devolucion", "descuento", "rebaja", "anular parte", "disminuir factura"]):
+    if contiene(texto, [
+        "nota de credito",
+        "nota credito",
+        "devolucion",
+        "devolvio",
+        "devuelve",
+        "devolver",
+        "mercaderia",
+        "descuento",
+        "rebaja",
+        "anular parte",
+        "disminuir factura",
+    ]):
         if len(numeros) >= 2:
             original = numeros[0]
             descuento = numeros[1]
@@ -927,9 +970,10 @@ def resolver_caso_practico(mensaje):
             return (
                 "Caso práctico de nota de crédito:\n\n"
                 f"Factura original: {formato_soles(original)}\n"
-                f"Monto a descontar/devolver: {formato_soles(descuento)}\n"
+                f"Monto devuelto, descontado o corregido: {formato_soles(descuento)}\n"
                 f"Nuevo monto de la operación: {formato_soles(nuevo_total)}\n\n"
-                "Corresponde emitir una nota de crédito porque estás reduciendo, corrigiendo o anulando parte de una operación ya facturada."
+                "Comprobante que corresponde emitir: nota de crédito.\n"
+                "Motivo: el cliente devolvió mercadería o se está reduciendo el valor de una operación ya facturada."
             )
 
     if contiene(texto, ["detraccion", "detracciones"]):
@@ -1063,54 +1107,6 @@ def resolver_caso_practico(mensaje):
             "Este cálculo es referencial. Para intereses tributarios reales debes verificar la tasa vigente de SUNAT."
         )
 
-    if contiene(texto, ["saldo a favor", "compensar", "aplicar saldo"]) and len(numeros) >= 2:
-        deuda = numeros[0]
-        saldo = numeros[1]
-        resultado = deuda - saldo
-
-        if resultado > 0:
-            return (
-                "Caso práctico de aplicación de saldo a favor:\n\n"
-                f"Deuda: {formato_soles(deuda)}\n"
-                f"Saldo a favor: {formato_soles(saldo)}\n"
-                f"Monto pendiente por pagar: {formato_soles(resultado)}"
-            )
-
-        if resultado < 0:
-            return (
-                "Caso práctico de aplicación de saldo a favor:\n\n"
-                f"Deuda: {formato_soles(deuda)}\n"
-                f"Saldo a favor: {formato_soles(saldo)}\n"
-                f"Nuevo saldo a favor: {formato_soles(abs(resultado))}"
-            )
-
-        return (
-            "Caso práctico de aplicación de saldo a favor:\n\n"
-            f"Deuda: {formato_soles(deuda)}\n"
-            f"Saldo a favor: {formato_soles(saldo)}\n"
-            "La deuda queda cancelada."
-        )
-
-    if "renta neta imponible" in texto or "impuesto a la renta" in texto or "pagos a cuenta" in texto:
-        return (
-            "Este es un caso práctico de Impuesto a la Renta empresarial.\n\n"
-            "Para resolverlo se sigue este orden:\n\n"
-            "1. Identificar ingresos tributarios.\n"
-            "2. Determinar costos computables.\n"
-            "3. Separar gastos deducibles y no deducibles.\n"
-            "4. Calcular adiciones tributarias.\n"
-            "5. Determinar la renta neta imponible.\n"
-            "6. Aplicar la tasa del Impuesto a la Renta, por ejemplo 29.5%.\n"
-            "7. Restar los pagos a cuenta.\n"
-            "8. Determinar saldo por pagar o saldo a favor.\n\n"
-            "Fórmula general:\n"
-            "Renta neta imponible = ingresos - costos - gastos deducibles + adiciones - deducciones.\n"
-            "Impuesto a la Renta = renta neta imponible x tasa.\n"
-            "Saldo = impuesto calculado - pagos a cuenta.\n\n"
-            "Para darte resultado exacto, escríbeme así:\n"
-            "Ingresos 500000, costos 230000, gastos deducibles 80000, gastos no deducibles 15000, pagos a cuenta 42000, tasa 29.5%."
-        )
-
     if len(numeros) >= 1 and contiene(texto, ["calcula", "calcular", "cuanto", "monto", "total"]):
         return (
             "Puedo ayudarte a resolver el caso, pero necesito que me indiques qué deseas calcular.\n\n"
@@ -1120,7 +1116,8 @@ def resolver_caso_practico(mensaje):
             "- Ventas 5000 y compras 2000, calcula IGV.\n"
             "- Detracción de S/ 1000 con 12%.\n"
             "- Deuda de S/ 1200 en 6 cuotas.\n"
-            "- Ingresos 500000, costos 230000, gastos deducibles 80000, gastos no deducibles 15000, pagos a cuenta 42000."
+            "- Factura S/ 1500 y devolución de mercadería S/ 300.\n"
+            "- Impuesto a la Renta S/ 35000 y pagos a cuenta S/ 42000."
         )
 
     return None
@@ -1435,19 +1432,19 @@ Instrucciones:
 def respuesta_fallback():
     return (
         "Soy TribuTax. Puedo ayudarte con muchos temas tributarios de Perú:\n\n"
-        "📌 IGV: cálculo, crédito fiscal, débito fiscal, exonerado e inafecto.\n"
-        "📌 RUC y SUNAT: inscripción, Clave SOL, consultas, deudas y declaraciones.\n"
-        "📌 Comprobantes: factura, boleta, recibo por honorarios, guía de remisión, nota de crédito y nota de débito.\n"
-        "📌 Facturación electrónica: XML, CDR, OSE, PSE y comprobantes electrónicos.\n"
-        "📌 Impuesto a la Renta: primera, segunda, tercera, cuarta y quinta categoría.\n"
-        "📌 Casos de renta: ingresos, costos, gastos deducibles, no deducibles, adiciones, renta neta e impuesto.\n"
-        "📌 Regímenes: Nuevo RUS, RER, RMT y Régimen General.\n"
-        "📌 Detracciones, retenciones y percepciones.\n"
-        "📌 Libros contables: Registro de Ventas, Registro de Compras, PLE y SIRE.\n"
-        "📌 Multas, deudas, fraccionamiento, cobranza coactiva y fiscalización.\n"
-        "📌 Otros: UIT, ITAN, ITF, ISC, predial, alcabala, arbitrios, aduanas y drawback.\n\n"
-        "También puedo resolver casos. Ejemplo:\n"
-        "Ingresos 500000, costos 230000, gastos deducibles 80000, gastos no deducibles 15000, pagos a cuenta 42000, tasa 29.5%."
+        " - IGV: cálculo, crédito fiscal, débito fiscal, exonerado e inafecto.\n"
+        " - RUC y SUNAT: inscripción, Clave SOL, consultas, deudas y declaraciones.\n"
+        " - Comprobantes: factura, boleta, recibo por honorarios, guía de remisión, nota de crédito y nota de débito.\n"
+        " - Facturación electrónica: XML, CDR, OSE, PSE y comprobantes electrónicos.\n"
+        " - Impuesto a la Renta: primera, segunda, tercera, cuarta y quinta categoría.\n"
+        " - Casos de renta: ingresos, costos, gastos deducibles, no deducibles, adiciones, renta neta e impuesto.\n"
+        " - Regímenes: Nuevo RUS, RER, RMT y Régimen General.\n"
+        " - Detracciones, retenciones y percepciones.\n"
+        " - Libros contables: Registro de Ventas, Registro de Compras, PLE y SIRE.\n"
+        " - Multas, deudas, fraccionamiento, cobranza coactiva y fiscalización.\n"
+        " - Otros: UIT, ITAN, ITF, ISC, predial, alcabala, arbitrios, aduanas y drawback.\n\n"
+        " - También puedo resolver casos. Ejemplo:\n"
+        " - Factura S/ 1500 y devolución de mercadería S/ 300."
     )
 
 
