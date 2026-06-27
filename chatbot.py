@@ -1,6 +1,7 @@
 import os
 import re
 import difflib
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,6 +14,8 @@ except Exception:
     types = None
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
+
 client = None
 
 if GEMINI_API_KEY and genai is not None:
@@ -1951,6 +1954,95 @@ Respuesta:
     except Exception as e:
         print("ERROR GEMINI:", str(e))
         return None
+    
+
+
+
+def responder_con_openrouter(mensaje, historial=None, respuesta_local=None):
+    if not OPENROUTER_API_KEY:
+        print("OPENROUTER no configurado: falta OPENROUTER_API_KEY.")
+        return None
+
+    contexto = construir_contexto(historial or [])
+
+    if respuesta_local:
+        instruccion_local = f"""
+Respuesta base local:
+{respuesta_local}
+
+Puedes usarla como apoyo, pero responde de forma natural y sin repetir demasiado.
+"""
+    else:
+        instruccion_local = ""
+
+    prompt_sistema = """
+Eres TribuTax, un asistente virtual conversacional.
+
+Tu especialidad principal es tributación peruana: SUNAT, IGV, Impuesto a la Renta,
+comprobantes de pago, regímenes tributarios, multas, deuda tributaria,
+cobranza coactiva y casos prácticos.
+
+También puedes responder preguntas generales de cultura, estudio, ciencia,
+tecnología, literatura, naturaleza y temas cotidianos.
+
+Reglas:
+- Responde exactamente lo que el usuario pregunta.
+- No saludes en cada respuesta.
+- No digas siempre "soy TribuTax".
+- No repitas siempre la estructura de concepto, explicación, ejemplo y recomendación.
+- Si la pregunta es simple, responde breve y claro.
+- Si es un caso práctico con números, resuelve paso a paso.
+- Si es tributario, responde con enfoque peruano.
+- No ayudes a evadir impuestos, ocultar ingresos, falsificar comprobantes ni engañar a SUNAT.
+"""
+
+    prompt_usuario = f"""
+Historial reciente:
+{contexto}
+
+Pregunta del usuario:
+{mensaje}
+
+{instruccion_local}
+"""
+
+    try:
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://tributax.onrender.com",
+                "X-Title": "TribuTax",
+            },
+            json={
+                "model": "openrouter/free",
+                "messages": [
+                    {"role": "system", "content": prompt_sistema},
+                    {"role": "user", "content": prompt_usuario},
+                ],
+                "temperature": 0.3,
+                "max_tokens": 1200,
+            },
+            timeout=25,
+        )
+
+        if response.status_code != 200:
+            print("ERROR OPENROUTER:", response.status_code, response.text)
+            return None
+
+        data = response.json()
+        respuesta = data["choices"][0]["message"]["content"]
+
+        if respuesta:
+            print("OpenRouter respondió correctamente.")
+            return respuesta.strip()
+
+        return None
+
+    except Exception as e:
+        print("ERROR OPENROUTER:", str(e))
+        return None
         
 # ============================================================
 # FALLBACK
@@ -2038,13 +2130,24 @@ def responder_chatbot(mensaje, historial=None):
         if texto in RESPUESTAS_DIRECTAS:
             return RESPUESTAS_DIRECTAS[texto]
 
-        # 1. Si es caso práctico tributario con números, responde local rápido y completo
+        # 1. Casos prácticos tributarios con números:
+        # se responden localmente para que sean rápidos y completos.
         caso = resolver_caso_practico(mensaje)
 
         if caso:
             return caso
 
-        # 2. Para todo lo demás, primero consulta a Gemini
+        # 2. Primero intenta OpenRouter para preguntas generales o tributarias.
+        respuesta_openrouter = responder_con_openrouter(
+            mensaje=mensaje,
+            historial=historial,
+            respuesta_local=None
+        )
+
+        if respuesta_openrouter:
+            return respuesta_openrouter
+
+        # 3. Si OpenRouter falla, intenta Gemini.
         respuesta_gemini = responder_con_gemini(
             mensaje=mensaje,
             historial=historial,
@@ -2054,21 +2157,17 @@ def responder_chatbot(mensaje, historial=None):
         if respuesta_gemini:
             return respuesta_gemini
 
-        # 3. Si Gemini falla, intenta respuesta local tributaria
+        # 4. Si las APIs fallan, responde localmente si es tema tributario.
         respuesta_local = buscar_respuesta_local(mensaje, historial)
 
         if respuesta_local:
             return respuesta_local
 
-        # 4. Si Gemini falla y no hay respuesta local
         return (
-            "Puedo ayudarte, pero en este momento la conexión con Gemini no respondió.\n\n"
-            "Intenta nuevamente en unos segundos. También puedes hacerme consultas tributarias, "
-            "casos prácticos con montos, preguntas generales o temas de estudio."
+            "Puedo ayudarte, pero en este momento no respondió la conexión con la IA externa.\n\n"
+            "Intenta nuevamente en unos segundos o escribe una consulta tributaria con más detalle."
         )
 
     except Exception as e:
         print("ERROR EN responder_chatbot:", str(e))
-        return (
-            "Ocurrió un error al procesar tu consulta. Intenta nuevamente o escribe la pregunta de otra forma."
-        )
+        return "Ocurrió un error al procesar tu consulta. Intenta nuevamente."
