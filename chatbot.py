@@ -1928,7 +1928,7 @@ Respuesta:
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.2,
-                max_output_tokens=900,
+                max_output_tokens=2000,
             ),
         )
 
@@ -2028,15 +2028,14 @@ def responder_chatbot(mensaje, historial=None):
         if texto in RESPUESTAS_DIRECTAS:
             return RESPUESTAS_DIRECTAS[texto]
 
-        if not es_consulta_tributaria(mensaje):
-            return (
-                "Tu consulta no parece estar relacionada con tributación.\n\n"
-                "Puedo ayudarte con IGV, SUNAT, RUC, comprobantes de pago, Impuesto a la Renta, "
-                "regímenes tributarios, detracciones, retenciones, libros contables, multas, deudas, "
-                "cobranza coactiva y casos prácticos tributarios."
-            )
+        # 1. CASOS PRÁCTICOS CON NÚMEROS: responder local primero
+        # Esto evita respuestas lentas, cortadas o incompletas de Gemini.
+        caso = resolver_caso_practico(mensaje)
 
-        # Primero consulta a Gemini
+        if caso:
+            return caso
+
+        # 2. Si no es caso práctico, ahora sí consulta a Gemini
         respuesta_gemini = responder_con_gemini(
             mensaje=mensaje,
             historial=historial,
@@ -2046,7 +2045,7 @@ def responder_chatbot(mensaje, historial=None):
         if respuesta_gemini:
             return respuesta_gemini
 
-        # Si Gemini falla por cuota, error o API, recién responde local
+        # 3. Si Gemini falla, responde local
         respuesta_local = buscar_respuesta_local(mensaje, historial)
 
         if respuesta_local:
