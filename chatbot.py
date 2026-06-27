@@ -1973,6 +1973,40 @@ def respuesta_fallback():
 # FUNCIÓN PRINCIPAL QUE USA main.py
 # ============================================================
 
+def es_consulta_tributaria(mensaje):
+    texto = limpiar_texto(mensaje)
+
+    palabras_tributarias = [
+        "tributo", "tributario", "tributaria", "impuesto", "igv", "renta",
+        "sunat", "ruc", "clave sol", "factura", "boleta", "recibo",
+        "honorarios", "nota de credito", "nota de debito", "detraccion",
+        "retencion", "percepcion", "declaracion", "declarar", "multa",
+        "deuda", "fraccionamiento", "cobranza", "coactiva", "embargo",
+        "fiscalizacion", "requerimiento", "esquela", "carta inductiva",
+        "libros", "registro de ventas", "registro de compras", "ple", "sire",
+        "renta de primera", "renta de segunda", "renta de tercera",
+        "renta de cuarta", "renta de quinta", "nuevo rus", "rer", "rmt",
+        "regimen general", "uit", "predial", "alcabala", "arbitrios",
+        "aduanas", "importacion", "exportacion", "drawback", "credito fiscal",
+        "debito fiscal", "obligacion tributaria", "codigo tributario",
+        "reclamacion", "apelacion", "tribunal fiscal", "sancion",
+        "infraccion", "gasto deducible", "gasto no deducible",
+        "pagos a cuenta", "renta neta", "base imponible"
+    ]
+
+    if any(palabra in texto for palabra in palabras_tributarias):
+        return True
+
+    # También considera tributario si trae números y palabras de cálculo comunes
+    if extraer_numeros(mensaje) and any(
+        palabra in texto
+        for palabra in ["ventas", "compras", "ingresos", "costos", "gastos", "cuotas", "saldo"]
+    ):
+        return True
+
+    return False
+
+
 def responder_chatbot(mensaje, historial=None):
     if historial is None:
         historial = []
@@ -1983,22 +2017,43 @@ def responder_chatbot(mensaje, historial=None):
         if mensaje == "":
             return "Escribe tu consulta tributaria o pega tu caso práctico para poder ayudarte."
 
+        texto = limpiar_texto(mensaje)
+
         if detectar_pregunta_prohibida(mensaje):
             return respuesta_segura()
 
+        # Saludos y respuestas directas
+        if texto in RESPUESTAS_DIRECTAS:
+            return RESPUESTAS_DIRECTAS[texto]
+
+        # Si NO es tributario, no gastar Gemini
+        if not es_consulta_tributaria(mensaje):
+            return (
+                "Soy TribuTax, un asistente especializado en tributación peruana.\n\n"
+                "Tu consulta no parece estar relacionada con temas tributarios. "
+                "Puedo ayudarte con IGV, SUNAT, RUC, comprobantes de pago, Impuesto a la Renta, "
+                "regímenes tributarios, detracciones, retenciones, libros contables, multas, deudas, "
+                "cobranza coactiva y casos prácticos tributarios.\n\n"
+                "Ejemplo de consulta que sí puedo responder:\n"
+                "¿Qué pasa si no presento mi declaración mensual a tiempo?"
+            )
+
+        # Primero intenta responder localmente
         respuesta_local = buscar_respuesta_local(mensaje, historial)
 
+        # Si hay respuesta local, úsala directamente y NO gastes Gemini
+        if respuesta_local:
+            return respuesta_local
+
+        # Gemini solo se usa si no hubo respuesta local y sí es tributario
         respuesta_gemini = responder_con_gemini(
             mensaje=mensaje,
             historial=historial,
-            respuesta_local=respuesta_local
+            respuesta_local=None
         )
 
         if respuesta_gemini:
             return respuesta_gemini
-
-        if respuesta_local:
-            return respuesta_local
 
         return respuesta_fallback()
 
