@@ -227,6 +227,33 @@ RESPUESTAS_DIRECTAS = {
         "Impuesto a la Renta, regímenes tributarios, detracciones, retenciones, libros contables, "
         "cobranza coactiva, infracciones, sanciones y casos prácticos."
     ),
+        "quien es keyla nima": (
+        "Keyla Nima es la creadora de TribuTax, este chatbot tributario diseñado para orientar y responder consultas sobre tributación peruana.\n\n"
+        "Ella desarrolló el chatbot con el objetivo de brindar una herramienta práctica, clara y accesible para resolver dudas sobre IGV, SUNAT, RUC, comprobantes de pago, Impuesto a la Renta, regímenes tributarios, multas, deudas, cobranza coactiva y casos prácticos.\n\n"
+        "TribuTax fue creado como un asistente virtual que ayuda a explicar temas tributarios de forma sencilla, ordenada y útil para estudiantes, emprendedores, contribuyentes y personas que necesitan orientación básica."
+    ),
+
+    "quien creo tributax": (
+        "TribuTax fue creado por Keyla Nima.\n\n"
+        "Keyla Nima desarrolló este chatbot como una herramienta de orientación tributaria, pensada para responder consultas sobre impuestos, SUNAT, IGV, RUC, comprobantes de pago, Impuesto a la Renta, regímenes tributarios y casos prácticos.\n\n"
+        "La finalidad de TribuTax es facilitar el aprendizaje y la comprensión de temas tributarios de manera clara, rápida y sencilla."
+    ),
+
+    "quien creo este chatbot": (
+        "Este chatbot fue creado por Keyla Nima.\n\n"
+        "TribuTax es un asistente virtual especializado principalmente en tributación peruana. Su propósito es ayudar a resolver dudas sobre SUNAT, IGV, Impuesto a la Renta, comprobantes de pago, regímenes tributarios, multas, declaraciones, deuda tributaria y casos prácticos.\n\n"
+        "Fue desarrollado para brindar orientación clara, educativa y fácil de entender."
+    ),
+
+    "quien es la creadora": (
+        "La creadora de este chatbot es Keyla Nima.\n\n"
+        "Ella desarrolló TribuTax como un asistente virtual tributario para ayudar a las personas a comprender mejor temas relacionados con impuestos, SUNAT y obligaciones tributarias en el Perú."
+    ),
+
+    "quien desarrollo tributax": (
+        "TribuTax fue desarrollado por Keyla Nima.\n\n"
+        "El chatbot fue creado para brindar orientación tributaria clara y práctica, especialmente sobre IGV, Impuesto a la Renta, comprobantes de pago, RUC, SUNAT, multas, deuda tributaria y casos prácticos."
+    ),
     "ayuda": (
         "Puedo ayudarte con:\n\n"
         "1. IGV: cálculo, crédito fiscal, débito fiscal e IGV incluido.\n"
@@ -1544,6 +1571,12 @@ def corregir_texto(texto):
         "coactiva": "cobranza coactiva",
         "embargaron": "embargo",
         "sunat": "sunat",
+        "keyla": "keyla",
+        "nima": "nima",
+        "creadora": "creadora",
+        "creador": "creador",
+        "desarrollo": "desarrollo",
+        "desarrolladora": "desarrolladora",
     }
 
     palabras = texto_limpio.split()
@@ -1835,6 +1868,26 @@ def buscar_respuesta_local(mensaje, historial=None):
 
     texto = limpiar_texto(mensaje)
 
+    if (
+        "keyla nima" in texto
+        or ("keyla" in texto and "nima" in texto)
+        or ("quien" in texto and "creo" in texto and "tributax" in texto)
+        or ("quien" in texto and "creo" in texto and "chatbot" in texto)
+        or ("quien" in texto and "desarrollo" in texto and "tributax" in texto)
+        or ("quien" in texto and "desarrollo" in texto and "chatbot" in texto)
+        or ("quien" in texto and "hizo" in texto and "tributax" in texto)
+        or ("quien" in texto and "hizo" in texto and "chatbot" in texto)
+        or ("creadora" in texto and "tributax" in texto)
+        or ("creador" in texto and "tributax" in texto)
+        or ("creadora" in texto and "chatbot" in texto)
+        or ("creador" in texto and "chatbot" in texto)
+    ):
+        return (
+            "Keyla Nima es la creadora de TribuTax, este chatbot diseñado para brindar orientación clara y práctica sobre tributación peruana.\n\n"
+            "TribuTax fue desarrollado para ayudar a estudiantes, emprendedores, contribuyentes y personas interesadas en comprender temas como IGV, SUNAT, RUC, comprobantes de pago, Impuesto a la Renta, regímenes tributarios, multas, declaraciones, deuda tributaria, cobranza coactiva y casos prácticos.\n\n"
+            "Además, TribuTax busca explicar temas tributarios de manera sencilla, responder dudas frecuentes, resolver ejercicios con montos paso a paso y servir como apoyo educativo para comprender mejor las obligaciones tributarias en el Perú."
+        )
+
     if detectar_pregunta_prohibida(mensaje):
         return respuesta_segura()
 
@@ -1864,7 +1917,6 @@ def buscar_respuesta_local(mensaje, historial=None):
             return responder_tema(tema_anterior, intencion)
 
     return None
-
 
 # ============================================================
 # GEMINI
@@ -1905,6 +1957,11 @@ Mejora la respuesta si es necesario, pero no la hagas repetitiva.
         instruccion_respuesta_local = ""
 
     prompt = f"""
+Información fija del proyecto:
+- Keyla Nima es la creadora de TribuTax.
+- TribuTax es un chatbot creado para orientar sobre tributación peruana y también responder preguntas generales cuando se usa IA externa.
+- Si el usuario pregunta quién creó el chatbot, quién desarrolló TribuTax o quién es Keyla Nima, responde que Keyla Nima es la creadora del chatbot TribuTax.
+
 Eres TribuTax, un asistente virtual conversacional.
 
 Tu especialidad principal es tributación peruana, SUNAT, IGV, Impuesto a la Renta, comprobantes,
@@ -1976,6 +2033,11 @@ Puedes usarla como apoyo, pero responde de forma natural y sin repetir demasiado
         instruccion_local = ""
 
     prompt_sistema = """
+Información fija del proyecto:
+- Keyla Nima es la creadora de TribuTax.
+- TribuTax es un chatbot creado para orientar sobre tributación peruana y también responder preguntas generales cuando se usa IA externa.
+- Si el usuario pregunta quién creó el chatbot, quién desarrolló TribuTax o quién es Keyla Nima, responde que Keyla Nima es la creadora del chatbot TribuTax.
+
 Eres TribuTax, un asistente virtual conversacional.
 
 Tu especialidad principal es tributación peruana: SUNAT, IGV, Impuesto a la Renta,
