@@ -1891,33 +1891,43 @@ def responder_con_gemini(mensaje, historial=None, respuesta_local=None):
 
     contexto = construir_contexto(historial or [])
 
+    if respuesta_local:
+        instruccion_respuesta_local = f"""
+Respuesta base local:
+{respuesta_local}
+
+Mejora la respuesta si es necesario, pero no la hagas repetitiva.
+"""
+    else:
+        instruccion_respuesta_local = ""
+
     prompt = f"""
-Eres TribuTax, un asistente virtual especializado en tributación peruana.
+Eres TribuTax, un asistente virtual conversacional.
 
-Responde SOLO lo que el usuario pregunta.
-No saludes en cada respuesta.
-No repitas listas fijas como "concepto, explicación, ejemplo, recomendación" salvo que el usuario pida una explicación amplia.
-No digas "soy TribuTax" en cada respuesta.
-Responde de forma clara, directa y concreta.
-Si la pregunta es simple, responde en 1 a 3 párrafos.
-Si es un caso práctico con números, resuelve paso a paso.
-Si el usuario pregunta algo fuera de tributación, indica amablemente que solo atiendes consultas tributarias.
-Si se requieren montos, tasas, límites o cronogramas vigentes, recomienda verificar SUNAT o la norma vigente.
-No ayudes a evadir impuestos, ocultar ingresos, falsificar comprobantes ni engañar a SUNAT.
+Tu especialidad principal es tributación peruana, SUNAT, IGV, Impuesto a la Renta, comprobantes,
+regímenes tributarios, multas, deuda tributaria y casos prácticos.
 
-Temas que puedes responder:
-IGV, Impuesto a la Renta, SUNAT, RUC, Clave SOL, comprobantes de pago, factura, boleta,
-recibo por honorarios, nota de crédito, nota de débito, detracciones, retenciones, percepciones,
-regímenes tributarios, Nuevo RUS, RER, RMT, Régimen General, libros contables, PLE, SIRE,
-declaraciones mensuales, multas, gradualidad, deuda tributaria, cobranza coactiva, reclamación,
-apelación, Tribunal Fiscal, obligación tributaria, Código Tributario, infracciones, sanciones,
-UIT, impuesto predial, alcabala, arbitrios, aduanas, importación y exportación.
+Pero también puedes responder preguntas generales de cultura, conceptos, estudio, tecnología,
+naturaleza, literatura, ciencia, educación y temas cotidianos.
+
+Reglas de respuesta:
+- Responde directamente a lo que el usuario pregunta.
+- No saludes en cada respuesta.
+- No digas siempre "soy TribuTax".
+- No uses siempre la estructura de concepto, explicación, ejemplo y recomendación.
+- Si la pregunta es simple, responde breve y claro.
+- Si la pregunta es tributaria o un caso con números, responde con más detalle.
+- Si el usuario pide un caso práctico, resuelve paso a paso.
+- No ayudes a evadir impuestos, falsificar comprobantes, ocultar ingresos ni engañar a SUNAT.
+- Si no sabes algo con seguridad, dilo de forma clara.
 
 Historial reciente:
 {contexto}
 
 Pregunta del usuario:
 {mensaje}
+
+{instruccion_respuesta_local}
 
 Respuesta:
 """
@@ -1927,8 +1937,8 @@ Respuesta:
             model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
-                temperature=0.2,
-                max_output_tokens=2000,
+                temperature=0.3,
+                max_output_tokens=1200,
             ),
         )
 
@@ -2018,7 +2028,7 @@ def responder_chatbot(mensaje, historial=None):
         mensaje = mensaje.strip()
 
         if mensaje == "":
-            return "Escribe tu consulta tributaria o pega tu caso práctico para poder ayudarte."
+            return "Escribe tu pregunta o pega tu caso práctico para poder ayudarte."
 
         texto = limpiar_texto(mensaje)
 
@@ -2028,14 +2038,13 @@ def responder_chatbot(mensaje, historial=None):
         if texto in RESPUESTAS_DIRECTAS:
             return RESPUESTAS_DIRECTAS[texto]
 
-        # 1. CASOS PRÁCTICOS CON NÚMEROS: responder local primero
-        # Esto evita respuestas lentas, cortadas o incompletas de Gemini.
+        # 1. Si es caso práctico tributario con números, responde local rápido y completo
         caso = resolver_caso_practico(mensaje)
 
         if caso:
             return caso
 
-        # 2. Si no es caso práctico, ahora sí consulta a Gemini
+        # 2. Para todo lo demás, primero consulta a Gemini
         respuesta_gemini = responder_con_gemini(
             mensaje=mensaje,
             historial=historial,
@@ -2045,14 +2054,21 @@ def responder_chatbot(mensaje, historial=None):
         if respuesta_gemini:
             return respuesta_gemini
 
-        # 3. Si Gemini falla, responde local
+        # 3. Si Gemini falla, intenta respuesta local tributaria
         respuesta_local = buscar_respuesta_local(mensaje, historial)
 
         if respuesta_local:
             return respuesta_local
 
-        return respuesta_fallback()
+        # 4. Si Gemini falla y no hay respuesta local
+        return (
+            "Puedo ayudarte, pero en este momento la conexión con Gemini no respondió.\n\n"
+            "Intenta nuevamente en unos segundos. También puedes hacerme consultas tributarias, "
+            "casos prácticos con montos, preguntas generales o temas de estudio."
+        )
 
     except Exception as e:
         print("ERROR EN responder_chatbot:", str(e))
-        return respuesta_fallback()
+        return (
+            "Ocurrió un error al procesar tu consulta. Intenta nuevamente o escribe la pregunta de otra forma."
+        )
