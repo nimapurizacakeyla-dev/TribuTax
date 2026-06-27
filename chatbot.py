@@ -12,8 +12,7 @@ except Exception:
     genai = None
     types = None
 
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 client = None
 
 if GEMINI_API_KEY and genai is not None:
@@ -1678,27 +1677,53 @@ def obtener_tema_historial(historial):
 
     return None
 
-
 def responder_tema(tema, intencion="general"):
     if not tema or tema not in TEMAS:
         return None
 
     data = TEMAS[tema]
 
-    return (
-        f"{tema.upper()}\n\n"
-        "1. Concepto\n"
-        f"{data['concepto']}\n\n"
-        "2. Explicación\n"
-        f"{data['explicacion']}\n\n"
-        "3. Cómo funciona o para qué sirve\n"
-        f"{data['funcion']}\n\n"
-        "4. Ejemplo\n"
-        f"{data['ejemplo']}\n\n"
-        "5. Recomendación\n"
-        f"{data['recomendacion']}"
-    )
+    if tema == "igv":
+        return (
+            "El IGV es el Impuesto General a las Ventas. En Perú grava principalmente la venta de bienes, "
+            "la prestación de servicios, los contratos de construcción, la primera venta de inmuebles realizada "
+            "por constructores y las importaciones.\n\n"
+            "Su tasa general actual es 18%, compuesta por 16% de IGV y 2% de Impuesto de Promoción Municipal.\n\n"
+            "Ejemplo: si una venta es de S/ 1,000 sin IGV, el impuesto será S/ 180 y el total a pagar será S/ 1,180."
+        )
 
+    if intencion == "que_es":
+        return (
+            f"{data['concepto']}\n\n"
+            f"{data['explicacion']}\n\n"
+            f"Ejemplo: {data['ejemplo']}"
+        )
+
+    if intencion == "para_que_sirve":
+        return (
+            f"{data['funcion']}\n\n"
+            f"{data['explicacion']}"
+        )
+
+    if intencion == "como_funciona":
+        return (
+            f"{data['explicacion']}\n\n"
+            f"En la práctica: {data['funcion']}\n\n"
+            f"Ejemplo: {data['ejemplo']}"
+        )
+
+    if intencion == "ejemplo":
+        return (
+            f"Ejemplo: {data['ejemplo']}\n\n"
+            f"Esto se relaciona con: {data['concepto']}"
+        )
+
+    return (
+        f"{data['concepto']}\n\n"
+        f"{data['explicacion']}\n\n"
+        f"Ejemplo: {data['ejemplo']}\n\n"
+        f"Recomendación: {data['recomendacion']}"
+    )
 
 def detectar_pregunta_especifica(mensaje):
     texto = limpiar_texto(mensaje)
@@ -1860,57 +1885,41 @@ def construir_contexto(historial):
 
     return "\n".join(partes)
 
-
 def responder_con_gemini(mensaje, historial=None, respuesta_local=None):
     if client is None or types is None:
         return None
 
     contexto = construir_contexto(historial or [])
 
-    if respuesta_local:
-        instruccion_respuesta_local = f"""
-Ya existe una respuesta base local:
-{respuesta_local}
-
-Mejora esa respuesta haciéndola más completa, concreta y útil.
-No contradigas la respuesta base. Amplíala con explicación, ejemplo y recomendación.
-"""
-    else:
-        instruccion_respuesta_local = ""
-
     prompt = f"""
-{BASE_TRIBUTARIA}
+Eres TribuTax, un asistente virtual especializado en tributación peruana.
+
+Responde SOLO lo que el usuario pregunta.
+No saludes en cada respuesta.
+No repitas listas fijas como "concepto, explicación, ejemplo, recomendación" salvo que el usuario pida una explicación amplia.
+No digas "soy TribuTax" en cada respuesta.
+Responde de forma clara, directa y concreta.
+Si la pregunta es simple, responde en 1 a 3 párrafos.
+Si es un caso práctico con números, resuelve paso a paso.
+Si el usuario pregunta algo fuera de tributación, indica amablemente que solo atiendes consultas tributarias.
+Si se requieren montos, tasas, límites o cronogramas vigentes, recomienda verificar SUNAT o la norma vigente.
+No ayudes a evadir impuestos, ocultar ingresos, falsificar comprobantes ni engañar a SUNAT.
+
+Temas que puedes responder:
+IGV, Impuesto a la Renta, SUNAT, RUC, Clave SOL, comprobantes de pago, factura, boleta,
+recibo por honorarios, nota de crédito, nota de débito, detracciones, retenciones, percepciones,
+regímenes tributarios, Nuevo RUS, RER, RMT, Régimen General, libros contables, PLE, SIRE,
+declaraciones mensuales, multas, gradualidad, deuda tributaria, cobranza coactiva, reclamación,
+apelación, Tribunal Fiscal, obligación tributaria, Código Tributario, infracciones, sanciones,
+UIT, impuesto predial, alcabala, arbitrios, aduanas, importación y exportación.
 
 Historial reciente:
 {contexto}
 
-Pregunta actual del usuario:
+Pregunta del usuario:
 {mensaje}
 
-{instruccion_respuesta_local}
-
-Instrucciones obligatorias:
-- Responde en español.
-- Responde como TribuTax.
-- Da una respuesta completa, concreta y útil.
-- Si es teoría, usa esta estructura:
-  1. Concepto.
-  2. Explicación.
-  3. Cómo funciona.
-  4. Ejemplo.
-  5. Recomendación.
-- Si es caso práctico, usa esta estructura:
-  1. Datos del caso.
-  2. Tema tributario identificado.
-  3. Desarrollo paso a paso.
-  4. Fórmula.
-  5. Resultado.
-  6. Conclusión.
-  7. Recomendación.
-- Si faltan datos, indica exactamente cuáles faltan y muestra cómo resolverlo.
-- Si el usuario pregunta por Código Tributario, cobranza coactiva, infracciones, sanciones, reclamación, apelación o Tribunal Fiscal, responde con enfoque normativo pero entendible.
-- Si se necesitan montos, tasas, límites o cronogramas actuales, recomienda verificar SUNAT, MEF, El Peruano o municipalidad.
-- No ayudes a evadir impuestos, ocultar ingresos, falsificar comprobantes ni engañar a SUNAT.
+Respuesta:
 """
 
     try:
@@ -1919,20 +1928,20 @@ Instrucciones obligatorias:
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.2,
-                max_output_tokens=1800,
+                max_output_tokens=900,
             ),
         )
 
         if response and response.text:
+            print("Gemini respondió correctamente.")
             return response.text.strip()
 
         return None
 
     except Exception as e:
-        print("Gemini no disponible:", str(e))
+        print("ERROR GEMINI:", str(e))
         return None
-
-
+        
 # ============================================================
 # FALLBACK
 # ============================================================
@@ -1968,11 +1977,6 @@ def respuesta_fallback():
         "Escríbeme tu consulta con el mayor detalle posible y te ayudo a resolverla paso a paso."
     )
 
-
-# ============================================================
-# FUNCIÓN PRINCIPAL QUE USA main.py
-# ============================================================
-
 def es_consulta_tributaria(mensaje):
     texto = limpiar_texto(mensaje)
 
@@ -1984,20 +1988,17 @@ def es_consulta_tributaria(mensaje):
         "deuda", "fraccionamiento", "cobranza", "coactiva", "embargo",
         "fiscalizacion", "requerimiento", "esquela", "carta inductiva",
         "libros", "registro de ventas", "registro de compras", "ple", "sire",
-        "renta de primera", "renta de segunda", "renta de tercera",
-        "renta de cuarta", "renta de quinta", "nuevo rus", "rer", "rmt",
-        "regimen general", "uit", "predial", "alcabala", "arbitrios",
-        "aduanas", "importacion", "exportacion", "drawback", "credito fiscal",
-        "debito fiscal", "obligacion tributaria", "codigo tributario",
-        "reclamacion", "apelacion", "tribunal fiscal", "sancion",
-        "infraccion", "gasto deducible", "gasto no deducible",
+        "nuevo rus", "rer", "rmt", "regimen general", "uit", "predial",
+        "alcabala", "arbitrios", "aduanas", "importacion", "exportacion",
+        "drawback", "credito fiscal", "debito fiscal", "obligacion tributaria",
+        "codigo tributario", "reclamacion", "apelacion", "tribunal fiscal",
+        "sancion", "infraccion", "gasto deducible", "gasto no deducible",
         "pagos a cuenta", "renta neta", "base imponible"
     ]
 
     if any(palabra in texto for palabra in palabras_tributarias):
         return True
 
-    # También considera tributario si trae números y palabras de cálculo comunes
     if extraer_numeros(mensaje) and any(
         palabra in texto
         for palabra in ["ventas", "compras", "ingresos", "costos", "gastos", "cuotas", "saldo"]
@@ -2005,7 +2006,9 @@ def es_consulta_tributaria(mensaje):
         return True
 
     return False
-
+# ============================================================
+# FUNCIÓN PRINCIPAL QUE USA main.py
+# ============================================================
 
 def responder_chatbot(mensaje, historial=None):
     if historial is None:
@@ -2022,30 +2025,18 @@ def responder_chatbot(mensaje, historial=None):
         if detectar_pregunta_prohibida(mensaje):
             return respuesta_segura()
 
-        # Saludos y respuestas directas
         if texto in RESPUESTAS_DIRECTAS:
             return RESPUESTAS_DIRECTAS[texto]
 
-        # Si NO es tributario, no gastar Gemini
         if not es_consulta_tributaria(mensaje):
             return (
-                "Soy TribuTax, un asistente especializado en tributación peruana.\n\n"
-                "Tu consulta no parece estar relacionada con temas tributarios. "
+                "Tu consulta no parece estar relacionada con tributación.\n\n"
                 "Puedo ayudarte con IGV, SUNAT, RUC, comprobantes de pago, Impuesto a la Renta, "
                 "regímenes tributarios, detracciones, retenciones, libros contables, multas, deudas, "
-                "cobranza coactiva y casos prácticos tributarios.\n\n"
-                "Ejemplo de consulta que sí puedo responder:\n"
-                "¿Qué pasa si no presento mi declaración mensual a tiempo?"
+                "cobranza coactiva y casos prácticos tributarios."
             )
 
-        # Primero intenta responder localmente
-        respuesta_local = buscar_respuesta_local(mensaje, historial)
-
-        # Si hay respuesta local, úsala directamente y NO gastes Gemini
-        if respuesta_local:
-            return respuesta_local
-
-        # Gemini solo se usa si no hubo respuesta local y sí es tributario
+        # Primero consulta a Gemini
         respuesta_gemini = responder_con_gemini(
             mensaje=mensaje,
             historial=historial,
@@ -2054,6 +2045,12 @@ def responder_chatbot(mensaje, historial=None):
 
         if respuesta_gemini:
             return respuesta_gemini
+
+        # Si Gemini falla por cuota, error o API, recién responde local
+        respuesta_local = buscar_respuesta_local(mensaje, historial)
+
+        if respuesta_local:
+            return respuesta_local
 
         return respuesta_fallback()
 
